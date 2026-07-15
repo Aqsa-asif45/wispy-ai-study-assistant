@@ -1,0 +1,16 @@
+﻿# Environment variables (secrets - never commit)
+.env
+.env.local
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Editor/OS
+.vscode/
+.DS_Store
