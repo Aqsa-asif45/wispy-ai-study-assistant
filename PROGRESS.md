@@ -24,4 +24,10 @@ Update this after each work session.
 - Full RAG ingest pipeline working: PDF upload → text extraction → chunking →
   local embeddings → stored in Supabase (documents + chunks tables)
 - Backend uses Supabase secret key (bypasses RLS) since backend is trusted;
-  RLS still protects data from direct frontend/browser access
+  RLS still protects data from direct frontend/browser access`
+
+- Full RAG chat working: question → embed → pgvector similarity search → Gemini answer with citations
+- Using gemini-flash-lite-latest (Google's alias system) instead of a
+  version-pinned model name, since Gemini model names get deprecated
+  periodically - the alias auto-points to their current stable free-tier model
+- Basic rate-limit handling: 429 errors return a friendly message instead of crashing
