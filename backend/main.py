@@ -1,18 +1,34 @@
-from fastapi import FastAPI
+import os
+import json
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from db import supabase, SUPABASE_URL
 from routers import documents
 from routers import chat
+from pydantic import BaseModel
+from typing import List
+
+# Import Google GenAI SDK
+from google import genai
+from google.genai import errors
+from google.genai import types
+
+# Force load the .env file first
+from dotenv import load_dotenv
+load_dotenv()
 
 # This creates the actual web application object.
-# Think of "app" as the whole backend server we're building.
 app = FastAPI(title="Wispy API")
 
-# CORS = Cross-Origin Resource Sharing.
-# Browsers block a website from calling a backend on a *different* address
-# unless the backend explicitly allows it. Our frontend runs on
-# localhost:5173, our backend on localhost:8000 - different addresses -
-# so without this, the browser would refuse to let them talk to each other.
+# Initialize the Google GenAI client.
+# It will look for the GEMINI_API_KEY environment variable.
+api_key = os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    print("⚠️ WARNING: GEMINI_API_KEY was not found in environment variables!")
+
+genai_client = genai.Client(api_key=api_key)
+
+# CORS Middleware setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # our Vite frontend's address
@@ -20,22 +36,161 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(documents.router)
 app.include_router(chat.router)
 
-# The @app.get("/") line is a "decorator" - it tells FastAPI:
-# "when someone visits the root URL with a GET request, run this function"
+# Pydantic schema for incoming study requests
+class DocumentRequest(BaseModel):
+    document_id: str
+
+# Pydantic schemas to enforce strict JSON structure for Flashcards
+class FlashcardItem(BaseModel):
+    question: str
+    answer: str
+
+class FlashcardResponse(BaseModel):
+    flashcards: List[FlashcardItem]
+
+
+# Helper function to fetch and stitch extracted text chunks from Supabase
+def get_document_content(document_id: str) -> str:
+    """
+    Retrieves and stitches together all text chunks associated with a document ID,
+    guaranteeing correct chronological reading order via 'chunk_index'.
+    """
+    try:
+        print(f"🔍 Fetching text chunks for Document ID: {document_id}...")
+        
+        # Query the 'chunks' table, ordering by chunk_index to preserve flow
+        response = supabase.table("chunks") \
+            .select("content") \
+            .eq("document_id", document_id) \
+            .order("chunk_index", desc=False) \
+            .execute()
+        
+        if response.data and len(response.data) > 0:
+            # Extract content from each chunk dictionary and join them
+            chunks = [row.get("content", "") for row in response.data]
+            full_text = "\n\n".join(chunks).strip()
+            
+            print(f"✅ Successfully stitched together {len(chunks)} chunks ({len(full_text)} characters).")
+            return full_text
+        else:
+            print(f"⚠️ No chunks found in database for document ID: {document_id}")
+            
+    except Exception as e:
+        print(f"💥 Critical Database error while retrieving chunks: {str(e)}")
+        
+    return ""
+
+
 @app.get("/")
 def read_root():
     return {"message": "Wispy backend is running 🐾"}
 
+
 @app.get("/test-db")
 def test_db():
-    # This just asks Supabase "what auth settings does this project have"
-    # - a lightweight call that proves the URL + key are valid,
-    # without needing any tables to exist yet.
     try:
         response = supabase.auth.get_session()
         return {"status": "connected", "supabase_url": SUPABASE_URL}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+# Dynamic LLM-Powered Notes Endpoint using Gemini
+@app.post("/notes")
+async def generate_notes(request: DocumentRequest):
+    document_text = get_document_content(request.document_id)
+    
+    if not document_text:
+        raise HTTPException(
+            status_code=404, 
+            detail="Could not retrieve content for this document. Make sure it has been processed and chunked."
+        )
+
+    prompt = f"""
+    You are Wispy, a cute and extremely helpful retro-style AI study assistant. 
+    Summarize the provided study text into highly structured, comprehensive, and clear notes. 
+    Use Markdown headers, bullet points, and bold text to make it easy to read. 
+    Add a friendly, retro-enthusiastic mascot sign-off at the very end!
+
+    Study Document Text:
+    {document_text}
+    """
+
+    try:
+        response = genai_client.models.generate_content(
+             model="gemini-flash-lite-latest",
+            contents=prompt
+        )
+        return {"notes": response.text}
+        
+    except errors.ClientError as e:
+        error_msg = str(e)
+        print(f"💥 Gemini ClientError inside /notes: {error_msg}")
+        
+        # Safely handle potential API rate-limit errors (HTTP 429)
+        if "429" in error_msg or (hasattr(e, "code") and e.code == 429):
+            raise HTTPException(
+                status_code=429, 
+                detail="Wispy is a bit overloaded right now (rate limit hit). Try again in a minute!"
+            )
+        raise HTTPException(status_code=400, detail=f"Gemini API error: {error_msg}")
+        
+    except Exception as e:
+        print(f"💥 Unexpected Server Error in /notes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"LLM Notes Generation failed: {str(e)}")
+
+
+# Dynamic LLM-Powered Flashcards Endpoint using Gemini with Strict Schema Output
+@app.post("/flashcards")
+async def generate_flashcards(request: DocumentRequest):
+    document_text = get_document_content(request.document_id)
+    
+    if not document_text:
+        raise HTTPException(
+            status_code=404, 
+            detail="Could not retrieve content for this document. Make sure it has been processed and chunked."
+        )
+
+    prompt = f"""
+    You are Wispy. Read the provided text and extract 3-5 distinct key concepts 
+    and format them as clear question-and-answer pairs for flashcard testing.
+    
+    Study Document Text:
+    {document_text}
+    """
+
+    try:
+        # Ask Gemini to return JSON adhering strictly to our FlashcardResponse schema
+        response = genai_client.models.generate_content(
+             model="gemini-flash-lite-latest",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=FlashcardResponse,
+            ),
+        )
+        
+        # Parse and return the safely enforced structured data
+        structured_data = json.loads(response.text)
+        return structured_data
+        
+    except errors.ClientError as e:
+        error_msg = str(e)
+        print(f"💥 Gemini ClientError inside /flashcards: {error_msg}")
+        
+        if "429" in error_msg or (hasattr(e, "code") and e.code == 429):
+            raise HTTPException(
+                status_code=429, 
+                detail="Wispy is a bit overloaded right now (rate limit hit). Try again in a minute!"
+            )
+        raise HTTPException(status_code=400, detail=f"Gemini API error: {error_msg}")
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse LLM flashcard output as valid JSON.")
+    except Exception as e:
+        print(f"💥 Unexpected Server Error in /flashcards: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"LLM Flashcard Generation failed: {str(e)}")

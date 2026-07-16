@@ -1,9 +1,25 @@
 @import "tailwindcss";
 @import "nes.css/css/nes.min.css";
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 /* Google Fonts - pixel display font for headers, per the mood board */
+
+/* Move this to the absolute top of your CSS file */
 @import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
 
+/* Your custom 3D flip helper classes from earlier */
+.perspective-1000 { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; }
+.rotate-y-180 { transform: rotateY(180deg); }
+
+/* Rest of your CSS below... */
+body {
+  font-family: 'Silkscreen', system-ui, sans-serif;
+}
 /* @theme is how Tailwind v4 lets us define custom design tokens (colors,
    fonts, etc.) directly in CSS instead of a separate config file.
    Once defined here, we can use them anywhere as Tailwind classes,
@@ -24,4 +40,57 @@
 
 body {
   font-family: 'Silkscreen', system-ui, sans-serif;
+}
+@layer utilities {
+  /* Keep our retro pixel art crisp and un-blurred */
+  .pixelated {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Custom Keyframe Animations for Wispy */
+@keyframes tail-wag {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-8deg) translateY(-2px);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(15deg);
+  }
+}
+
+.animate-tail-wag {
+  animation: tail-wag 1.8s ease-in-out infinite;
+  transform-origin: 48px 48px;
+}
+
+.animate-wiggle {
+  animation: wiggle 0.5s ease-in-out infinite;
+  transform-origin: bottom left;
+}
+.perspective-1000 { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; }
+.rotate-y-180 { transform: rotateY(180deg); }
+
+@theme {
+  --color-blush-pink: #F8D7E3;
+  --color-hot-pink: #F4A6C6;
+  --color-lilac: #C9A8E0;
+  --color-window-purple: #B9A6E0;
+  --color-titlebar-purple: #8B6FCE;
+  --color-deep-navy: #14163A;
+  --color-cream: #F5EFE0;
+  --color-ink-brown: #4A3F52;
+  --color-gold-accent: #E8B84B;
+  --font-pixel: "Press Start 2P", monospace;
 }
