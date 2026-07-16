@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db import supabase, SUPABASE_URL
+from routers import documents
 
 
 # This creates the actual web application object.
@@ -19,6 +20,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(documents.router)
 
 # The @app.get("/") line is a "decorator" - it tells FastAPI:
 # "when someone visits the root URL with a GET request, run this function"
