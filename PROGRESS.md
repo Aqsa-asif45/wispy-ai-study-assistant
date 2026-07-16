@@ -20,3 +20,8 @@ Update this after each work session.
 - Supabase key naming: SRS assumed `anon`/`service_role` keys; project uses newer
   `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` naming (Supabase's current system as of mid-2026).
   Functionally equivalent, just a naming update.
+
+- Full RAG ingest pipeline working: PDF upload → text extraction → chunking →
+  local embeddings → stored in Supabase (documents + chunks tables)
+- Backend uses Supabase secret key (bypasses RLS) since backend is trusted;
+  RLS still protects data from direct frontend/browser access
