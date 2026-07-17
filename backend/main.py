@@ -1,17 +1,13 @@
 import os
-import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from db import supabase, SUPABASE_URL
-from routers import documents
-from routers import chat
+from routers import documents, chat, auth, flashcards 
 from pydantic import BaseModel
-from typing import List
 
 # Import Google GenAI SDK
 from google import genai
 from google.genai import errors
-from google.genai import types
 
 # Force load the .env file first
 from dotenv import load_dotenv
@@ -21,7 +17,6 @@ load_dotenv()
 app = FastAPI(title="Wispy API")
 
 # Initialize the Google GenAI client.
-# It will look for the GEMINI_API_KEY environment variable.
 api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
     print("⚠️ WARNING: GEMINI_API_KEY was not found in environment variables!")
@@ -37,20 +32,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Connect all modular endpoints 
+app.include_router(auth.router)       
 app.include_router(documents.router)
 app.include_router(chat.router)
+app.include_router(flashcards.router)  # 🚀 Fully activated!
 
 # Pydantic schema for incoming study requests
 class DocumentRequest(BaseModel):
     document_id: str
-
-# Pydantic schemas to enforce strict JSON structure for Flashcards
-class FlashcardItem(BaseModel):
-    question: str
-    answer: str
-
-class FlashcardResponse(BaseModel):
-    flashcards: List[FlashcardItem]
 
 
 # Helper function to fetch and stitch extracted text chunks from Supabase
@@ -142,55 +132,3 @@ async def generate_notes(request: DocumentRequest):
     except Exception as e:
         print(f"💥 Unexpected Server Error in /notes: {str(e)}")
         raise HTTPException(status_code=500, detail=f"LLM Notes Generation failed: {str(e)}")
-
-
-# Dynamic LLM-Powered Flashcards Endpoint using Gemini with Strict Schema Output
-@app.post("/flashcards")
-async def generate_flashcards(request: DocumentRequest):
-    document_text = get_document_content(request.document_id)
-    
-    if not document_text:
-        raise HTTPException(
-            status_code=404, 
-            detail="Could not retrieve content for this document. Make sure it has been processed and chunked."
-        )
-
-    prompt = f"""
-    You are Wispy. Read the provided text and extract 3-5 distinct key concepts 
-    and format them as clear question-and-answer pairs for flashcard testing.
-    
-    Study Document Text:
-    {document_text}
-    """
-
-    try:
-        # Ask Gemini to return JSON adhering strictly to our FlashcardResponse schema
-        response = genai_client.models.generate_content(
-             model="gemini-flash-lite-latest",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=FlashcardResponse,
-            ),
-        )
-        
-        # Parse and return the safely enforced structured data
-        structured_data = json.loads(response.text)
-        return structured_data
-        
-    except errors.ClientError as e:
-        error_msg = str(e)
-        print(f"💥 Gemini ClientError inside /flashcards: {error_msg}")
-        
-        if "429" in error_msg or (hasattr(e, "code") and e.code == 429):
-            raise HTTPException(
-                status_code=429, 
-                detail="Wispy is a bit overloaded right now (rate limit hit). Try again in a minute!"
-            )
-        raise HTTPException(status_code=400, detail=f"Gemini API error: {error_msg}")
-        
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Failed to parse LLM flashcard output as valid JSON.")
-    except Exception as e:
-        print(f"💥 Unexpected Server Error in /flashcards: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"LLM Flashcard Generation failed: {str(e)}")

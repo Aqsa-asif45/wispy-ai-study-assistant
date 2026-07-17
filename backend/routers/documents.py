@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from pypdf import PdfReader
 import io
 from services.chunking import chunk_text
@@ -19,8 +19,6 @@ async def upload_document(file: UploadFile = File(...)):
     chunks = chunk_text(extracted_text)
 
     # Step 1: create the parent "documents" row first.
-    # .execute() sends the request to Supabase and waits for the response.
-    # user_id is left out for now - we'll wire that in once login/signup exists.
     doc_response = supabase.table("documents").insert({
         "title": file.filename,
         "source_type": "pdf"
@@ -47,3 +45,23 @@ async def upload_document(file: UploadFile = File(...)):
         "num_pages": len(pdf.pages),
         "num_chunks": len(chunks)
     }
+
+# NEW: Fetch all stored documents from the library
+@router.get("")
+async def list_documents():
+    try:
+        response = supabase.table("documents").select("id", "title", "source_type", "created_at").order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch documents: {str(e)}")
+
+# NEW: Delete a document (and its chunks automatically via CASCADE)
+@router.delete("/{document_id}")
+async def delete_document(document_id: str):
+    try:
+        response = supabase.table("documents").delete().eq("id", document_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Document not found.")
+        return {"message": "Document successfully deleted", "document_id": document_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
