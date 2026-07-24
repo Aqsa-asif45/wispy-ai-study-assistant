@@ -1,30 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
 @import "tailwindcss";
 @import "nes.css/css/nes.min.css";
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-/* Google Fonts - pixel display font for headers, per the mood board */
-
-/* Move this to the absolute top of your CSS file */
-@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
-
-/* Your custom 3D flip helper classes from earlier */
 .perspective-1000 { perspective: 1000px; }
 .transform-style-3d { transform-style: preserve-3d; }
 .backface-hidden { backface-visibility: hidden; }
 .rotate-y-180 { transform: rotateY(180deg); }
 
-/* Rest of your CSS below... */
 body {
   font-family: 'Silkscreen', system-ui, sans-serif;
 }
-/* @theme is how Tailwind v4 lets us define custom design tokens (colors,
-   fonts, etc.) directly in CSS instead of a separate config file.
-   Once defined here, we can use them anywhere as Tailwind classes,
-   e.g. bg-blush-pink, text-ink-brown */
+
+/* @theme defines design tokens Tailwind turns into utility classes,
+   e.g. --color-night-bg becomes usable as bg-night-bg, text-night-bg, etc. */
 @theme {
+  /* === DAY THEME (unchanged, used everywhere by default) === */
   --color-blush-pink: #F8D7E3;
   --color-hot-pink: #F4A6C6;
   --color-lilac: #C9A8E0;
@@ -35,37 +26,39 @@ body {
   --color-ink-brown: #4A3F52;
   --color-gold-accent: #E8B84B;
 
-  --font-pixel: 'Silkscreen', system-ui, sans-serif;
+  /* === NIGHT THEME (new) — separate token names on purpose, so
+     components explicitly opt in (e.g. bg-night-bg) instead of the
+     day colors silently changing meaning underneath everyone. Only
+     used on the Workspace and Flashcards pages. === */
+  --color-night-bg: #1A1333;
+  --color-night-panel: #241B42;
+  --color-night-card: #2E2154;
+  --color-night-accent: #A78BFA;
+  --color-night-glow: #C4B5FD;
+  --color-night-text: #E9E4F5;
+  --color-night-border: #4C3A7A;
+
+  /* This was defined twice before with two different values — this is
+     the one that was actually winning already, so keeping it here
+     doesn't change how anything currently looks. */
+  --font-pixel: "Press Start 2P", monospace;
 }
 
-body {
-  font-family: 'Silkscreen', system-ui, sans-serif;
-}
 @layer utilities {
-  /* Keep our retro pixel art crisp and un-blurred */
   .pixelated {
     image-rendering: pixelated;
     image-rendering: crisp-edges;
   }
 }
 
-/* Custom Keyframe Animations for Wispy */
 @keyframes tail-wag {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(-8deg) translateY(-2px);
-  }
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-8deg) translateY(-2px); }
 }
 
 @keyframes wiggle {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(15deg);
-  }
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(15deg); }
 }
 
 .animate-tail-wag {
@@ -77,20 +70,12 @@ body {
   animation: wiggle 0.5s ease-in-out infinite;
   transform-origin: bottom left;
 }
-.perspective-1000 { perspective: 1000px; }
-.transform-style-3d { transform-style: preserve-3d; }
-.backface-hidden { backface-visibility: hidden; }
-.rotate-y-180 { transform: rotateY(180deg); }
 
-@theme {
-  --color-blush-pink: #F8D7E3;
-  --color-hot-pink: #F4A6C6;
-  --color-lilac: #C9A8E0;
-  --color-window-purple: #B9A6E0;
-  --color-titlebar-purple: #8B6FCE;
-  --color-deep-navy: #14163A;
-  --color-cream: #F5EFE0;
-  --color-ink-brown: #4A3F52;
-  --color-gold-accent: #E8B84B;
-  --font-pixel: "Press Start 2P", monospace;
+/* Small bonus for later: twinkling stars in the night background */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+.animate-twinkle {
+  animation: twinkle 2.5s ease-in-out infinite;
 }

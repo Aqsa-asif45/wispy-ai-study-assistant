@@ -6,17 +6,27 @@ import WispyMascot from "../components/WispyMascot";
 export default function LandingPage() {
   const navigate = useNavigate();
   const [activeFeature, setActiveFeature] = useState("chat");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Logged-in users skip straight to their workspace; everyone else
+  // goes through login/signup first.
+const handleEnterApp = () => {
+  const token = localStorage.getItem("token");
+  navigate(token ? "/workspace" : "/cutscene");
+};
 
   // Track page scroll to subtly animate background elements
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
 
-  // Scroll smoothly helper
+  // Scroll smoothly helper — also closes the mobile menu after a tap,
+  // so it doesn't stay open covering the section you just jumped to
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     }
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -38,24 +48,60 @@ export default function LandingPage() {
           <span className="font-pixel text-xs tracking-wider text-titlebar-purple">WISPY.EXE</span>
         </div>
         
-        {/* Nav Links */}
+        {/* Nav Links — visible on md screens and up */}
         <div className="hidden md:flex items-center gap-8 font-pixel text-[9px] text-slate-600">
           <button onClick={() => scrollToSection("intro")} className="hover:text-hot-pink transition-colors">01. INTRO</button>
           <button onClick={() => scrollToSection("features")} className="hover:text-hot-pink transition-colors">02. FEATURES</button>
           <button onClick={() => scrollToSection("about")} className="hover:text-hot-pink transition-colors">03. ABOUT US</button>
         </div>
 
-        {/* Action Button */}
-        <button 
-          onClick={() => navigate("/workspace")}
-          className="font-pixel text-[8px] bg-hot-pink text-white border-[3px] border-ink-brown px-4 py-2 hover:bg-gold-accent hover:text-ink-brown transition-colors active:translate-y-1 shadow-[3px_3px_0px_0px_#4A3F52]"
-        >
-          ENTER_APP
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Action Button */}
+          <button 
+            onClick={handleEnterApp}
+            className="font-pixel text-[8px] bg-hot-pink text-white border-[3px] border-ink-brown px-4 py-2 hover:bg-gold-accent hover:text-ink-brown transition-colors active:translate-y-1 shadow-[3px_3px_0px_0px_#4A3F52]"
+          >
+            ENTER_APP
+          </button>
+
+          {/* Hamburger toggle — only shown below md, since the link
+              row above is hidden at that width */}
+          <button
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Toggle menu"
+            className="md:hidden font-pixel text-lg text-ink-brown border-[3px] border-ink-brown w-9 h-9 flex items-center justify-center bg-cream shadow-[3px_3px_0px_0px_#4A3F52] active:translate-y-1 active:shadow-none transition-all"
+          >
+            {mobileMenuOpen ? "✕" : "☰"}
+          </button>
+        </div>
+
+        {/* Mobile dropdown menu — only rendered when open, only relevant below md */}
+        {mobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-white border-b-4 border-ink-brown flex flex-col shadow-[0_4px_0_0_rgba(74,63,82,0.1)]">
+            <button
+              onClick={() => scrollToSection("intro")}
+              className="font-pixel text-[9px] text-left px-6 py-4 border-b-2 border-ink-brown/10 hover:bg-blush-pink transition-colors"
+            >
+              01. INTRO
+            </button>
+            <button
+              onClick={() => scrollToSection("features")}
+              className="font-pixel text-[9px] text-left px-6 py-4 border-b-2 border-ink-brown/10 hover:bg-blush-pink transition-colors"
+            >
+              02. FEATURES
+            </button>
+            <button
+              onClick={() => scrollToSection("about")}
+              className="font-pixel text-[9px] text-left px-6 py-4 hover:bg-blush-pink transition-colors"
+            >
+              03. ABOUT US
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* 🌟 SECTION 1: HERO & WELCOME (Full Screen) */}
-      <section id="intro" className="min-h-screen flex flex-col justify-center items-center pt-24 px-6 relative">
+      <section id="intro" className="min-h-screen flex flex-col justify-center items-center pt-50 px-6 relative">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -74,9 +120,10 @@ export default function LandingPage() {
               <div className="absolute bottom-[-12px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-ink-brown" />
             </motion.div>
             
-            {/* Mascot Container */}
-            <div className="w-32 h-32 mx-auto bg-cream border-4 border-ink-brown rounded-full flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_#4A3F52]">
-              <WispyMascot state="idle" size="lg" />
+            {/* Mascot Container — overflow-hidden added so the cat clips
+                cleanly to the circle instead of spilling past its edge */}
+            <div className="w-32 h-32 mx-auto bg-cream border-4 border-ink-brown rounded-full overflow-hidden flex items-center justify-center p-2 shadow-[4px_4px_0px_0px_#4A3F52]">
+              <WispyMascot state="idle" size="sm" />
             </div>
           </div>
 
@@ -91,10 +138,10 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* CTA Group */}
+          {/* CTA Group — CTA #2 (main entry action) */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
             <button 
-              onClick={() => navigate("/workspace")}
+              onClick={handleEnterApp}
               className="font-pixel text-[10px] bg-gold-accent hover:bg-yellow-300 border-4 border-ink-brown px-8 py-4 shadow-[6px_6px_0px_0px_#4A3F52] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
             >
               GET STARTED (FREE) &gt;&gt;
@@ -113,7 +160,6 @@ export default function LandingPage() {
       <section id="features" className="min-h-screen bg-cream border-y-8 border-ink-brown flex flex-col justify-center py-20 px-6 relative">
         <div className="max-w-5xl w-full mx-auto grid md:grid-cols-12 gap-12 items-center">
           
-          {/* Feature Selector & Explanations */}
           <div className="md:col-span-6 space-y-8">
             <div className="space-y-2">
               <span className="font-pixel text-[9px] text-titlebar-purple uppercase">[ SYSTEM FEATURES ]</span>
@@ -121,7 +167,6 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-4">
-              {/* Feature Tab 1 */}
               <button 
                 onClick={() => setActiveFeature("chat")}
                 className={`w-full text-left p-4 border-4 border-ink-brown rounded transition-all flex items-start gap-4 ${activeFeature === 'chat' ? 'bg-window-purple text-white shadow-none' : 'bg-white shadow-[4px_4px_0px_0px_#4A3F52]'}`}
@@ -133,7 +178,6 @@ export default function LandingPage() {
                 </div>
               </button>
 
-              {/* Feature Tab 2 */}
               <button 
                 onClick={() => setActiveFeature("notes")}
                 className={`w-full text-left p-4 border-4 border-ink-brown rounded transition-all flex items-start gap-4 ${activeFeature === 'notes' ? 'bg-window-purple text-white shadow-none' : 'bg-white shadow-[4px_4px_0px_0px_#4A3F52]'}`}
@@ -145,7 +189,6 @@ export default function LandingPage() {
                 </div>
               </button>
 
-              {/* Feature Tab 3 */}
               <button 
                 onClick={() => setActiveFeature("cards")}
                 className={`w-full text-left p-4 border-4 border-ink-brown rounded transition-all flex items-start gap-4 ${activeFeature === 'cards' ? 'bg-window-purple text-white shadow-none' : 'bg-white shadow-[4px_4px_0px_0px_#4A3F52]'}`}
@@ -159,7 +202,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Interactive Live Mascot Sandbox Panel */}
           <div className="md:col-span-6 flex justify-center">
             <div className="w-full max-w-sm bg-white border-[6px] border-ink-brown p-6 rounded shadow-[8px_8px_0px_0px_#4A3F52] flex flex-col items-center text-center">
               <div className="bg-titlebar-purple w-full py-2 border-b-4 border-ink-brown mb-4 -mx-6 -mt-6 px-4 flex justify-between select-none">
@@ -199,7 +241,6 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 gap-8 items-stretch">
             
-            {/* Card 1: Vision */}
             <div className="bg-white border-4 border-ink-brown p-6 rounded shadow-[6px_6px_0px_0px_#4A3F52]">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-3xl">☕</span>
@@ -210,7 +251,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Card 2: Technology */}
             <div className="bg-white border-4 border-ink-brown p-6 rounded shadow-[6px_6px_0px_0px_#4A3F52]">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-3xl">🕹️</span>
@@ -222,17 +262,8 @@ export default function LandingPage() {
             </div>
 
           </div>
-
-          {/* Bottom Final CTA */}
-          <div className="text-center pt-8">
-            <button 
-              onClick={() => navigate("/workspace")}
-              className="font-pixel text-[10px] bg-hot-pink text-white border-4 border-ink-brown px-8 py-4 shadow-[6px_6px_0px_0px_#4A3F52] hover:bg-gold-accent hover:text-ink-brown transition-all active:translate-y-1 active:shadow-none"
-            >
-              START STUDYING WITH WISPY NOW
-            </button>
-          </div>
-
+          {/* Old third "START STUDYING WITH WISPY NOW" CTA removed on purpose —
+              it duplicated the nav button and hero button. */}
         </div>
       </section>
 

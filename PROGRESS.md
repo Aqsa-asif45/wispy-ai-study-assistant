@@ -31,3 +31,40 @@ Update this after each work session.
   version-pinned model name, since Gemini model names get deprecated
   periodically - the alias auto-points to their current stable free-tier model
 - Basic rate-limit handling: 429 errors return a friendly message instead of crashing
+
+## ✅ Backend completion pass (all MVP backend features)
+- Centralized the Gemini client (one client in `services/gemini_client.py`,
+  removed the duplicate in `db.py`/`main.py`); moved shared logic out of
+  `main.py` into `services/documents_service.py`
+- Real auth on every route: `services/auth.py` verifies the Supabase JWT
+  from the `Authorization: Bearer <token>` header; `documents`, `chat`,
+  `notes`, `flashcards` all require it and check document ownership
+  (`get_owned_document`) before doing anything
+- `documents.user_id` is now set on upload; `GET /documents` filters by
+  the logged-in user
+- Notes and flashcards are now persisted (`notes`/`flashcards` tables)
+  and have `GET /notes/{document_id}` / `GET /flashcards/{document_id}`
+  endpoints - they survive a refresh now
+- Chat messages are saved to `chat_messages`; added
+  `GET /chat/{document_id}` for history
+- Audio Notes Taker built: `POST /documents/upload-audio` sends audio
+  directly to Gemini for a timestamped transcript
+  (`services/audio.py`), which is chunked/embedded the same as PDFs
+  (`page_or_timestamp` populated) - notes/chat/flashcards work on audio
+  documents with no extra code
+- Added `supabase/schema.sql` - full table + `match_chunks()` function +
+  RLS policy definitions, version-controlled instead of living only in
+  the Supabase dashboard
+- Updated `frontend/src/lib/api.js` to attach the auth token and match
+  the corrected REST paths (`/notes/{id}/generate`,
+  `/flashcards/{id}/generate`, `/documents/upload-audio`,
+  `/chat/{id}`)
+
+## 📝 Deviations from SRS (this pass)
+- Chat/notes/flashcards endpoints use `{document_id}` as a path param
+  (e.g. `POST /chat/{document_id}`) instead of a body field, matching
+  SRS §6's own endpoint table more closely than the original
+  implementation did
+- Dropped the ad-hoc `createFlashcard` (manual card entry) frontend
+  function - there's no backend endpoint for it and it wasn't in SRS
+  scope; can be added later as a stretch goal if wanted

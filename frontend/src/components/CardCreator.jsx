@@ -1,14 +1,14 @@
-
 import React, { useState } from 'react';
 import Flashcard from './Flashcard';
 import { createFlashcard } from "../lib/api";
 
 export default function CardCreator({ documentId, onCardCreated, onClose }) {
-  const [newCard, setNewCard] = useState({ 
-    question: "Type a study question...", 
-    answer: "Type the clear answer context..." 
+  const [newCard, setNewCard] = useState({
+    question: "Type a study question...",
+    answer: "Type the clear answer context..."
   });
   const [saving, setSaving] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   const handleFieldChange = (field, value) => {
     setNewCard(prev => ({ ...prev, [field]: value }));
@@ -34,15 +34,22 @@ export default function CardCreator({ documentId, onCardCreated, onClose }) {
   return (
     <div className="nes-container with-title is-rounded bg-white p-6 max-w-2xl mx-auto my-4">
       <p className="title text-sm">Forge Custom Flashcard</p>
-      
+
       <div className="mb-4">
-        <Flashcard 
+        <Flashcard
           question={newCard.question}
           answer={newCard.answer}
-          isFlipped={false}
+          isFlipped={isFlipped}
           isEditing={true}
           onUpdateField={handleFieldChange}
         />
+        <button
+          type="button"
+          className="nes-btn text-xs w-full mb-4"
+          onClick={() => setIsFlipped((f) => !f)}
+        >
+          {isFlipped ? "← Back to Question" : "Flip to Answer →"}
+        </button>
       </div>
 
       <div className="flex justify-end gap-4 mt-6">

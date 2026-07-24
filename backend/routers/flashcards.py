@@ -1,28 +1,31 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+import json
 from typing import List
 
-router = APIRouter(tags=["Flashcards"])
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 
-# Define structural layout schemas for the LLM output engine
+from db import supabase
+from services.documents_service import get_document_content, get_owned_document
+from services.gemini_client import client as genai_client
+from services.auth import get_current_user
+
+router = APIRouter(prefix="/flashcards", tags=["flashcards"])
+
+
 class FlashcardItem(BaseModel):
-    question: str = Field(description="The front side definition or question of the study card.")
-    answer: str = Field(description="The reverse side explanation or shorthand answer.")
+    question: str = Field(description="The front side question of the study card.")
+    answer: str = Field(description="The reverse side answer.")
+
 
 class FlashcardResponseSchema(BaseModel):
     flashcards: List[FlashcardItem]
 
-class FlashcardRequest(BaseModel):
-    document_id: str
 
-@router.post("/flashcards")
-async def generate_flashcards(request: FlashcardRequest):
-    # 🌟 LOCAL IMPORTS: This breaks the circular loop completely during startup!
-    from main import genai_client, get_document_content 
-    
-    # Reuse your stitching helper function
-    document_text = get_document_content(request.document_id)
-    
+@router.post("/{document_id}/generate")
+async def generate_flashcards(document_id: str, current_user=Depends(get_current_user)):
+    get_owned_document(document_id, current_user.id)  # 404/403 if not yours
+
+    document_text = get_document_content(document_id)
     if not document_text:
         raise HTTPException(status_code=404, detail="Document content empty.")
 
@@ -30,25 +33,63 @@ async def generate_flashcards(request: FlashcardRequest):
     You are Wispy, a retro-style study assistant. Analyze this study text and extract
     the core academic terms, concepts, or formulas into an array of interactive study flashcards.
     Make the questions concise and the answers clear and high-yield!
-    
+
     Study Text:
     {document_text}
     """
 
     try:
-        # Use Structured Outputs to guarantee proper JSON array formats
         response = genai_client.models.generate_content(
             model="gemini-flash-lite-latest",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
                 "response_schema": FlashcardResponseSchema,
-            }
+            },
         )
-        
-        import json
-        structured_json = json.loads(response.text)
-        return structured_json
-
+        cards = json.loads(response.text)["flashcards"]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Flashcard production failure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Flashcard generation failed: {str(e)}")
+
+    # Replace old flashcards for this document with the fresh set.
+    supabase.table("flashcards").delete().eq("document_id", document_id).execute()
+    rows = [
+        {"document_id": document_id, "question": c["question"], "answer": c["answer"]}
+        for c in cards
+    ]
+    if rows:
+        supabase.table("flashcards").insert(rows).execute()
+
+    return {"flashcards": cards}
+
+
+@router.get("/{document_id}")
+async def fetch_flashcards(document_id: str, current_user=Depends(get_current_user)):
+    get_owned_document(document_id, current_user.id)
+
+    result = (
+        supabase.table("flashcards")
+        .select("*")
+        .eq("document_id", document_id)
+        .order("created_at")
+        .execute()
+    )
+    return result.data
+
+class CreateFlashcardRequest(BaseModel):
+    question: str
+    answer: str
+
+@router.post("/{document_id}")
+async def create_flashcard(
+    document_id: str,
+    payload: CreateFlashcardRequest,
+    current_user=Depends(get_current_user),
+):
+    get_owned_document(document_id, current_user.id)
+    result = (
+        supabase.table("flashcards")
+        .insert({"document_id": document_id, "question": payload.question, "answer": payload.answer})
+        .execute()
+    )
+    return result.data[0]

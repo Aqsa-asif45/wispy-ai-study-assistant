@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
-# Make sure your main app file exposes your initialized supabase client
-from main import supabase 
+from db import supabase
 
 router = APIRouter(
     prefix="/auth",

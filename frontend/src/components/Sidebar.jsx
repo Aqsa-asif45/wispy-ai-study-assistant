@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { createFlashcard } from "../lib/api";
+import { getDocuments, deleteDocument } from "../lib/api";
 
 export default function Sidebar({ selectedDocId, onSelectDoc, onUploadSuccess }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const fetchDocs = async () => {
     try {
@@ -34,32 +35,57 @@ export default function Sidebar({ selectedDocId, onSelectDoc, onUploadSuccess })
   };
 
   return (
-    <div className="w-64 nes-container with-title is-dark h-full flex flex-col">
-      <p className="title text-xs">File Library</p>
-      
+    <div
+      className={`nes-container with-title is-dark h-full flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
+        collapsed ? "w-16" : "w-64"
+      }`}
+    >
+      {/* Title row + collapse toggle. When collapsed, hide the title text
+          (no room for it) but keep the toggle button visible so you can
+          expand again. */}
+      <div className="flex items-center justify-between mb-2">
+        {!collapsed && <p className="title text-xs">File Library</p>}
+        <button
+          onClick={() => setCollapsed((prev) => !prev)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="text-white text-xs px-2 py-1 border border-gray-500 hover:border-white ml-auto"
+        >
+          {collapsed ? "▶" : "◀"}
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto space-y-4">
         {loading ? (
-          <p className="text-xs text-gray-400 animate-pulse">Loading directory...</p>
+          !collapsed && <p className="text-xs text-gray-400 animate-pulse">Loading directory...</p>
         ) : documents.length === 0 ? (
-          <p className="text-xs text-gray-500 italic">No files in library.</p>
+          !collapsed && <p className="text-xs text-gray-500 italic">No files in library.</p>
         ) : (
           documents.map((doc) => (
             <div
               key={doc.id}
               onClick={() => onSelectDoc(doc.id)}
-              className={`p-2 border-2 text-xs flex justify-between items-center cursor-pointer transition-colors ${
-                selectedDocId === doc.id 
-                  ? 'border-purple-400 bg-purple-900 text-white' 
+              title={doc.title} // shows the full name on hover, useful when collapsed
+              className={`p-2 border-2 text-xs flex items-center cursor-pointer transition-colors ${
+                collapsed ? "justify-center" : "justify-between"
+              } ${
+                selectedDocId === doc.id
+                  ? 'border-purple-400 bg-purple-900 text-white'
                   : 'border-gray-600 hover:border-white'
               }`}
             >
-              <span className="truncate mr-2">💾 {doc.title}</span>
-              <button 
-                onClick={(e) => handleDelete(e, doc.id)}
-                className="text-red-400 hover:text-red-600 font-bold px-1"
-              >
-                ✕
-              </button>
+              {collapsed ? (
+                <span>💾</span>
+              ) : (
+                <>
+                  <span className="truncate mr-2">💾 {doc.title}</span>
+                  <button
+                    onClick={(e) => handleDelete(e, doc.id)}
+                    className="text-red-400 hover:text-red-600 font-bold px-1"
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </div>
           ))
         )}
