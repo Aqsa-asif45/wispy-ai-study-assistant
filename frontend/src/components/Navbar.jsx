@@ -20,7 +20,7 @@ export default function Navbar() {
     >
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
         <span className="text-xl">🐾</span>
-        <span className="font-pixel text-[10px] text-white tracking-wider">WISPY.EXE</span>
+        <span className="font-pixel text-[12.5px] text-white tracking-wider">WISPY.EXE</span>
       </div>
 
       <span className={`font-pixel text-[9px] hidden sm:block ${isNight ? "text-night-text/70" : "text-white/80"}`}>
